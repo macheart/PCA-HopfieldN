@@ -1,35 +1,66 @@
----
-title: "HW3"
-author: "Prisma Lopez"
-date: "2/16/2019"
-output: html_document
----
+# In Figure 1, we show a PCA plot of Principal Components 1 and 2 (PC1,PC2) from the complete patient gene expression dataset. This dataset consists of gene expression profiles from 87 patients having either a good or a poor prognosis. We note that there is closer or more discrete clustering among those patients with a poor prognosis than than those with a good prognosis, with some overlap. Figure 2 shows the fraction each principal component contributes to the variance explained by the dataset. PC1 and PC2 contribute to a little over 30% of the variation. 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#In order to produce a Hopfield network for each gene of the 30 genes assessed in the entire dataset, we calculate the correlation values between a gene and it's correlation with all of the other 29 genes, one pair at a time. Figure 3 shows the distribution of the standardized (to a standard normal distribution) correlation values for each pair derived from a 30 x 30 matrix. A minor peak above 3 is seen, indicating the correlation of a gene with itself. Figures 4 and 5 show the distribution of the standardized correlation values for each gene pair in the Poor and Good prognosis dataset, respectively. Again, we note a minor peak of 1 on the x-axis,representing the correlation values between a gene and itself.
+
+```{r Load the data and parse appropriately, echo=FALSE, message=FALSE, results='hide'}
+library(tidyverse)
+library(plotrix)
+dat = read_csv("HW2_data.csv")
+
+dat[dat$`prognosis` == 'GOOD', ][, "prognosis"] <- 2
+dat[dat$`prognosis` == 'POOR', ][, "prognosis"] <- 1
+
+# Calculate Z-scores for each probe / patient
+
+
+datP = dat %>% filter(prognosis==1) %>% drop_na()
+datG = dat %>% filter(prognosis==2) %>% drop_na()
 ```
 
-## R Markdown
+```{r Run a PCA on the dataset, echo=FALSE,message=FALSE,warning=FALSE}
+group <- as.numeric(dat$prognosis)
+x <- dat
+pc <- prcomp(data.matrix(x))
+# ?prcomp
+#names(pc)
+plot(pc$x[, 1], pc$x[, 2], col = group, xlab = "PC1", ylab = "PC2",sub="Figure 1. PCA of Expression Dataset in 87 Patients with Either a Good or Poor Prognosis")
+legend("topright", legend=c("GOOD", "POOR"),
+       col=c("red", "black"), lty=1,box.lty=0)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Plot the variance explained by each principal component
+x=data.matrix(x)
+cx <- sweep(x, 2, colMeans(x), "-")
+sv <- svd(cx)
+plot(sv$d^2/sum(sv$d^2), xlim = c(0, 15), type = "b", pch = 16, xlab = "principal components", 
+    ylab = "variance explained",sub="Figure 2. Plot of Fractions Each Principal Component Contributes to the Variance of the Dataset")
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars, echo=FALSE}
-summary(cars)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r Perform the correlation assessment on the whole dataset, echo=FALSE,message=FALSE}
+core=cor(data.matrix(dat[,1:30])) # correlations
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+#scale(core,center=TRUE,scale=TRUE) # (z-score calculation-ish?) subtract the mean of (each probe's correlation to every other probe) and divide by the standard deviation # row wise caluclation 
+sdn=(core-mean(core))/sd(core) # (z-score calculation-ish?) subtract the mean of (each probe's correlation to every other probe) and divide by the standard deviation #Column wise calculation
+plot(density(data.matrix(sdn)),main="",sub="Figure 3. Distribution of Gene-to-Gene Correlation Values Across All 87 Patients") # distribution
+
+write.table(sdn, file = "zscore.txt", sep = "\t",row.names = FALSE, col.names=FALSE) # remove row names
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
-```{r}
-dat = read.csv("")
+```{r Perform the correlation assessment on the POOR dataset, echo=FALSE,message=FALSE,warning=FALSE}
+drop=c("X37439_at","prognosis","X31989_s_at")
+core=cor(data.matrix(datP)) %>% data.frame() %>% slice( 1:(n()-2)) %>% select(-drop) %>% na.omit()
+sdn=(data.matrix(core)-mean(data.matrix(core)))/sd(data.matrix(core))
+plot(density(data.matrix(core)),main="",sub="Figure 4. Distribution of Gene-to-Gene Correlation Values Across Patients with a Poor Prognosis") # distribution)
+
+```
+
+```{r Perform the correlation assessment on the GOOD dataset, echo=FALSE,message=FALSE,warning=FALSE}
+drop="prognosis"
+core=cor(data.matrix(datG)) %>% data.frame() %>% slice( 1:(n()-2)) %>% select(-drop) %>% na.omit()
+sdn=(data.matrix(core)-mean(data.matrix(core)))/sd(data.matrix(core))
+plot(density(data.matrix(core)),main="",sub="Figure 5. Distribution of Gene-to-Gene Correlation Values Across Patients with a Good Prognosis") # distribution
+
 ```
 
